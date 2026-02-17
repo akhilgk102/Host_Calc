@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profit Distribution</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #0a0a0c;
+            --surface: #111116;
+            --surface2: #16161d;
+            --border: rgba(255,255,255,0.06);
+            --gold: #c9a84c;
+            --gold-light: #e8c97a;
+            --gold-dim: rgba(201,168,76,0.15);
+            --text: #ffffff;
+            --muted: rgba(255,255,255,0.65);
+            --green: #4caf7d;
+            --green-dim: rgba(76,175,125,0.12);
+        }
+
+        body {
+            font-family: 'DM Mono', monospace;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 60% 40% at 20% 20%, rgba(201,168,76,0.06) 0%, transparent 60%),
+                radial-gradient(ellipse 50% 60% at 80% 80%, rgba(76,175,125,0.04) 0%, transparent 60%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+            background-size: 180px 180px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            pointer-events: none;
+            z-index: 0;
+            animation: drift 12s ease-in-out infinite alternate;
+        }
+        .orb-1 { width: 320px; height: 320px; background: rgba(201,168,76,0.07); top: -80px; left: -60px; }
+        .orb-2 { width: 280px; height: 280px; background: rgba(76,175,125,0.05); bottom: -60px; right: -40px; animation-delay: -6s; }
+
+        @keyframes drift {
+            from { transform: translate(0,0) scale(1); }
+            to { transform: translate(30px, 20px) scale(1.1); }
+        }
+
+        /* CARD */
+        .card {
+            position: relative;
+            z-index: 1;
+            width: 1100px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            box-shadow:
+                0 0 0 1px rgba(201,168,76,0.05),
+                0 40px 80px rgba(0,0,0,0.6),
+                0 2px 4px rgba(0,0,0,0.4);
+            animation: rise 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+            display: flex;
+            flex-direction: column;
+        }
+
+        @keyframes rise {
+            from { opacity: 0; transform: translateY(30px) scale(0.97); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .card-top-bar {
+            height: 2px;
+            flex-shrink: 0;
+            background: linear-gradient(90deg, transparent 0%, var(--gold) 40%, var(--gold-light) 60%, transparent 100%);
+            opacity: 0.7;
+        }
+
+        /* HEADER */
+        .card-header {
+            padding: 28px 44px 22px;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface);
+            flex-shrink: 0;
+        }
+
+        .eyebrow {
+            font-size: 11px;
+            letter-spacing: 0.3em;
+            text-transform: uppercase;
+            color: var(--gold);
+            opacity: 0.8;
+            margin-bottom: 8px;
+        }
+
+        h1 {
+            font-family: 'Cormorant Garamond', serif;
+            font-weight: 300;
+            font-size: 42px;
+            letter-spacing: 0.02em;
+            line-height: 1.1;
+        }
+        h1 span { color: var(--gold); }
+
+        /* TWO-COLUMN BODY */
+        .card-body {
+            display: grid;
+            grid-template-columns: 1fr 1px 1fr;
+        }
+
+        .pane-left {
+            padding: 30px 36px 38px;
+            background: var(--surface);
+        }
+
+        .v-divider {
+            background: var(--border);
+        }
+
+        .pane-right {
+            padding: 30px 36px 38px;
+            background: var(--surface2);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* FORM */
+        .field { margin-bottom: 16px; }
+
+        label {
+            display: block;
+            font-size: 10px;
+            letter-spacing: 0.25em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 8px;
+        }
+
+        .input-wrap { position: relative; }
+
+        .input-prefix {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--gold);
+            font-size: 16px;
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        input[type="number"] {
+            width: 100%;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px 14px 14px 40px;
+            color: var(--text);
+            font-family: 'DM Mono', monospace;
+            font-size: 16px;
+            font-weight: 300;
+            outline: none;
+            transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
+            appearance: textfield;
+            -moz-appearance: textfield;
+        }
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+        input[type="number"]::placeholder { color: rgba(255,255,255,0.25); }
+        input[type="number"]:focus {
+            border-color: rgba(201,168,76,0.4);
+            background: #1a1a22;
+            box-shadow: 0 0 0 3px rgba(201,168,76,0.07), inset 0 1px 3px rgba(0,0,0,0.3);
+        }
+        input[type="number"]:hover:not(:focus) { border-color: rgba(255,255,255,0.1); }
+
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+
+        button {
+            width: 100%;
+            margin-top: 14px;
+            padding: 15px;
+            background: linear-gradient(135deg, #b8922e 0%, #c9a84c 40%, #e8c97a 70%, #c9a84c 100%);
+            background-size: 200% 200%;
+            border: none;
+            border-radius: 10px;
+            color: #0a0805;
+            font-family: 'DM Mono', monospace;
+            font-size: 12px;
+            font-weight: 400;
+            letter-spacing: 0.25em;
+            text-transform: uppercase;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s, background-position 0.4s;
+            box-shadow: 0 4px 20px rgba(201,168,76,0.25), 0 1px 3px rgba(0,0,0,0.4);
+        }
+        button::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to bottom, rgba(255,255,255,0.12) 0%, transparent 60%);
+            pointer-events: none;
+        }
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 30px rgba(201,168,76,0.35), 0 2px 6px rgba(0,0,0,0.5);
+            background-position: right center;
+        }
+        button:active { transform: translateY(0) scale(0.99); }
+
+        /* RIGHT PANE */
+        .pane-right-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .divider-line { flex: 1; height: 1px; background: var(--border); }
+        .pane-right-title {
+            font-size: 10px;
+            letter-spacing: 0.3em;
+            text-transform: uppercase;
+            color: var(--muted);
+            white-space: nowrap;
+        }
+
+        /* Empty state */
+        .empty-state {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            opacity: 0.28;
+            user-select: none;
+        }
+        .empty-icon {
+            width: 54px;
+            height: 54px;
+            border: 1.5px solid var(--border);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 26px;
+            color: var(--gold);
+        }
+        .empty-text {
+            font-size: 11px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--muted);
+            text-align: center;
+            line-height: 2;
+        }
+
+        /* Result cards */
+        .results-panel {
+            flex: 1;
+            opacity: 0;
+            transform: translateX(14px);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            gap: 11px;
+        }
+        .results-panel.visible {
+            opacity: 1;
+            transform: translateX(0);
+            pointer-events: auto;
+        }
+
+        .result-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 18px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: border-color 0.3s;
+            animation: slide-in 0.4s ease both;
+        }
+        .result-card:nth-child(1) { animation-delay: 0.05s; }
+        .result-card:nth-child(2) { animation-delay: 0.13s; }
+        .result-card:nth-child(3) { animation-delay: 0.21s; }
+
+        @keyframes slide-in {
+            from { opacity: 0; transform: translateX(10px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+
+        .result-card:hover { border-color: rgba(255,255,255,0.1); }
+        .result-card.highlight {
+            background: var(--gold-dim);
+            border-color: rgba(201,168,76,0.22);
+        }
+        .result-card.highlight:hover { border-color: rgba(201,168,76,0.38); }
+
+        .result-label {
+            font-size: 10px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.7);
+            margin-bottom: 5px;
+        }
+        .result-value {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 28px;
+            font-weight: 600;
+            color: var(--text);
+            letter-spacing: 0.01em;
+        }
+        .result-card.highlight .result-value { color: var(--gold-light); }
+
+        .result-badge {
+            font-size: 10px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            padding: 5px 12px;
+            border-radius: 20px;
+            border: 1px solid;
+            white-space: nowrap;
+        }
+        .badge-working {
+            color: var(--gold);
+            border-color: rgba(201,168,76,0.3);
+            background: rgba(201,168,76,0.08);
+        }
+        .badge-passive {
+            color: var(--green);
+            border-color: rgba(76,175,125,0.3);
+            background: var(--green-dim);
+        }
+
+        .error-msg {
+            background: rgba(255,80,80,0.08);
+            border: 1px solid rgba(255,80,80,0.2);
+            border-radius: 10px;
+            padding: 14px 18px;
+            font-size: 12px;
+            color: rgba(255,120,120,0.9);
+            letter-spacing: 0.05em;
+        }
+
+        /* ── RESPONSIVE ── */
+        @media (max-width: 1140px) {
+            .card { width: calc(100vw - 32px); max-width: 1100px; }
+        }
+
+        @media (max-width: 700px) {
+            body {
+                align-items: flex-start;
+                padding: 16px;
+                overflow-y: auto;
+                overflow-x: hidden;
+            }
+            .card {
+                width: 100%;
+                border-radius: 16px;
+            }
+            .card-header { padding: 24px 22px 20px; }
+            h1 { font-size: 32px; }
+            .eyebrow { font-size: 10px; }
+
+            .card-body {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1px auto;
+            }
+            .v-divider { height: 1px; width: 100%; }
+
+            .pane-left { padding: 24px 22px 28px; }
+            .pane-right { padding: 24px 22px 32px; }
+
+            .two-col { grid-template-columns: 1fr 1fr; gap: 10px; }
+
+            input[type="number"] {
+                font-size: 15px;
+                padding: 13px 12px 13px 36px;
+            }
+            .input-prefix { font-size: 17px; }
+            button { padding: 14px; font-size: 11px; margin-top: 16px; }
+
+            .result-value { font-size: 26px; }
+            .result-card { padding: 16px 16px; border-radius: 12px; }
+            .result-badge { font-size: 9px; padding: 4px 9px; }
+
+            .pane-right-header { margin-bottom: 18px; }
+            .empty-icon { width: 46px; height: 46px; font-size: 22px; }
+            .empty-text { font-size: 10px; }
+            .orb-1 { width: 200px; height: 200px; }
+            .orb-2 { width: 160px; height: 160px; }
+        }
+
+        @media (max-width: 380px) {
+            h1 { font-size: 26px; }
+            .two-col { grid-template-columns: 1fr; }
+            .result-value { font-size: 22px; }
+        }
+
+        /* ── COMPANY DETAILS ── */
+        .company-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 44px;
+            background: rgba(201,168,76,0.06);
+            border-bottom: 1px solid rgba(201,168,76,0.12);
+            flex-shrink: 0;
+        }
+
+        .company-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .company-logo {
+            width: 34px;
+            height: 34px;
+            background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 17px;
+            font-weight: 600;
+            color: #0a0805;
+            flex-shrink: 0;
+        }
+
+        .company-name {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 20px;
+            font-weight: 600;
+            color: #ffffff;
+            letter-spacing: 0.04em;
+            line-height: 1.1;
+        }
+
+        .company-tagline {
+            font-size: 9px;
+            letter-spacing: 0.25em;
+            text-transform: uppercase;
+            color: var(--gold);
+            opacity: 0.85;
+            margin-top: 2px;
+        }
+
+        .company-right {
+            font-size: 9px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.4);
+            text-align: right;
+            line-height: 1.9;
+        }
+
+        @media (max-width: 700px) {
+            .company-bar {
+                padding: 12px 22px;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+            .company-right { text-align: left; }
+            .company-name { font-size: 17px; }
+        }
+
+        /* Amount preview */
+        .amount-preview {
+            margin-top: 6px;
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 17px;
+            font-weight: 400;
+            color: var(--gold-light);
+            letter-spacing: 0.02em;
+            min-height: 22px;
+            transition: opacity 0.2s;
+        }
+
+        /* Result sub-detail */
+        .result-sub {
+            font-size: 11px;
+            color: rgba(255,255,255,0.5);
+            margin-top: 4px;
+            letter-spacing: 0.05em;
+        }
+        .result-card.highlight .result-sub { color: rgba(232,200,100,0.65); }
+    </style>
+</head>
+<body>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<div class="card">
+    <div class="card-top-bar"></div>
+
+    <div class="company-bar">
+        <div class="company-left">
+            <div class="company-logo">H</div>
+            <div>
+                <div class="company-name">Hostlane Technolab</div>
+                <div class="company-tagline">Technology &amp; Innovation</div>
+            </div>
+        </div>
+        <div class="company-right">
+            Internal Financial Tool<br>
+            Profit Distribution v2.0
+        </div>
+    </div>
+
+    <div class="card-header">
+        <div class="eyebrow">Financial Tool</div>
+        <h1>Profit <span>Distribution</span></h1>
+    </div>
+
+    <div class="card-body">
+
+        <!-- LEFT — Inputs -->
+        <div class="pane-left">
+            <div class="field">
+                <label>Total Amount</label>
+                <div class="input-wrap">
+                    <span class="input-prefix">₹</span>
+                    <input type="number" id="amount" placeholder="0.00" oninput="onAmountInput()">
+                </div>
+                <div id="amount-preview" class="amount-preview"></div>
+            </div>
+
+            <div class="two-col">
+                <div class="field">
+                    <label>Extra Percentage</label>
+                    <div class="input-wrap">
+                        <span class="input-prefix">%</span>
+                        <input type="number" id="percentage" placeholder="0" oninput="autoCalc()">
+                    </div>
+                </div>
+                <div class="field">
+                    <label>Working Partners</label>
+                    <div class="input-wrap">
+                        <span class="input-prefix">#</span>
+                        <input type="number" id="working" placeholder="0" oninput="autoCalc()">
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="calculate()">Calculate Distribution</button>
+        </div>
+
+        <!-- Vertical separator -->
+        <div class="v-divider"></div>
+
+        <!-- RIGHT — Results -->
+        <div class="pane-right">
+            <div class="pane-right-header">
+                <div class="pane-right-title">Breakdown</div>
+                <div class="divider-line"></div>
+            </div>
+
+            <div class="empty-state" id="empty-state">
+                <div class="empty-icon">₹</div>
+                <div class="empty-text">Enter values on the left<br>to see the breakdown</div>
+            </div>
+
+            <div class="results-panel" id="results"></div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+// Format number in Indian comma style: 1,00,000
+function fmtIndian(n) {
+    if (isNaN(n) || n === null) return '';
+    return '\u20B9\u202f' + n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// Short label like 30,000 → ₹ 30K
+function shortFmt(n) {
+    if (n >= 10000000) return '\u20B9 ' + (n/10000000).toFixed(2).replace(/\.?0+$/, '') + ' Cr';
+    if (n >= 100000)   return '\u20B9 ' + (n/100000).toFixed(2).replace(/\.?0+$/, '') + ' L';
+    if (n >= 1000)     return '\u20B9 ' + (n/1000).toFixed(1).replace(/\.?0+$/, '') + 'K';
+    return '\u20B9 ' + n.toFixed(2);
+}
+
+function onAmountInput() {
+    const val = parseFloat(document.getElementById('amount').value);
+    const preview = document.getElementById('amount-preview');
+    if (val && !isNaN(val)) {
+        preview.textContent = val.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    } else {
+        preview.textContent = '';
+    }
+    autoCalc();
+}
+
+let autoCalcTimer = null;
+function autoCalc() {
+    clearTimeout(autoCalcTimer);
+    autoCalcTimer = setTimeout(() => {
+        const total   = parseFloat(document.getElementById('amount').value);
+        const percent = parseFloat(document.getElementById('percentage').value);
+        const working = parseInt(document.getElementById('working').value);
+        if (total && !isNaN(percent) && working) {
+            renderResults(total, percent, working);
+        }
+    }, 300);
+}
+
+function calculate() {
+    const total   = parseFloat(document.getElementById('amount').value);
+    const percent = parseFloat(document.getElementById('percentage').value);
+    const working = parseInt(document.getElementById('working').value);
+    const resultsEl = document.getElementById('results');
+    const emptyEl   = document.getElementById('empty-state');
+
+    if (!total || isNaN(percent) || !working) {
+        emptyEl.style.display = 'none';
+        resultsEl.innerHTML = `<div class="error-msg">Please fill in all fields to continue.</div>`;
+        resultsEl.classList.add('visible');
+        return;
+    }
+    renderResults(total, percent, working);
+}
+
+function renderResults(total, percent, working) {
+    const resultsEl = document.getElementById('results');
+    const emptyEl   = document.getElementById('empty-state');
+
+    resultsEl.classList.remove('visible');
+
+    setTimeout(() => {
+        emptyEl.style.display = 'none';
+
+        const totalMembers    = 6;
+        const extraAmount     = (percent / 100) * total;
+        const remaining       = total - extraAmount;
+        const equalShare      = remaining / totalMembers;
+        const extraPerWorking = extraAmount / working;
+        const workingFinal    = equalShare + extraPerWorking;
+
+        resultsEl.innerHTML = `
+            <div class="result-card highlight">
+                <div>
+                    <div class="result-label">Working Partner Total</div>
+                    <div class="result-value">${fmtIndian(workingFinal)}</div>
+                    <div class="result-sub">Base ${shortFmt(equalShare)} + Bonus ${shortFmt(extraPerWorking)}</div>
+                </div>
+                <div class="result-badge badge-working">Working</div>
+            </div>
+            <div class="result-card">
+                <div>
+                    <div class="result-label">Non-Working Partner</div>
+                    <div class="result-value">${fmtIndian(equalShare)}</div>
+                    <div class="result-sub">Equal base share only</div>
+                </div>
+                <div class="result-badge badge-passive">Passive</div>
+            </div>
+            <div class="result-card">
+                <div>
+                    <div class="result-label">Extra Pool (${percent}%)</div>
+                    <div class="result-value">${fmtIndian(extraAmount)}</div>
+                    <div class="result-sub">${shortFmt(extraPerWorking)} per working partner</div>
+                </div>
+                <div class="result-badge badge-passive">Bonus Pool</div>
+            </div>
+            <div class="result-card">
+                <div>
+                    <div class="result-label">Base Pool (Remaining)</div>
+                    <div class="result-value">${fmtIndian(remaining)}</div>
+                    <div class="result-sub">${shortFmt(equalShare)} × ${totalMembers} members</div>
+                </div>
+                <div class="result-badge badge-passive">Base</div>
+            </div>
+        `;
+
+        resultsEl.classList.add('visible');
+    }, 120);
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Enter') calculate(); });
+</script>
+
+</body>
+</html>
