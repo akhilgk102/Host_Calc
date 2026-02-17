@@ -230,6 +230,8 @@
             box-shadow: none;
             letter-spacing: 0;
             text-transform: none;
+            position: relative;
+            overflow: hidden;
         }
         .partner-btn:hover:not(.active) {
             border-color: rgba(201,168,76,0.25);
@@ -246,6 +248,22 @@
             transform: translateY(-1px);
         }
         .partner-btn:active { transform: translateY(0) scale(0.97); }
+
+        /* Ripple effect on partner buttons */
+        .partner-btn .ripple {
+            position: absolute;
+            border-radius: 50%;
+            transform: scale(0);
+            animation: ripple-anim 0.4s linear;
+            background: rgba(201,168,76,0.35);
+            pointer-events: none;
+        }
+        .partner-btn.active .ripple {
+            background: rgba(0,0,0,0.18);
+        }
+        @keyframes ripple-anim {
+            to { transform: scale(4); opacity: 0; }
+        }
 
         button {
             width: 100%;
@@ -418,6 +436,62 @@
             font-size: 12px;
             color: rgba(255,120,120,0.9);
             letter-spacing: 0.05em;
+        }
+
+        /* Sound indicator */
+        .sound-indicator {
+            position: fixed;
+            bottom: 22px;
+            right: 26px;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 20px;
+            padding: 7px 14px 7px 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+        }
+        .sound-indicator:hover {
+            background: rgba(255,255,255,0.07);
+            border-color: rgba(201,168,76,0.25);
+        }
+        .sound-icon {
+            font-size: 14px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+        }
+        .sound-bars {
+            display: flex;
+            align-items: flex-end;
+            gap: 2px;
+            height: 14px;
+        }
+        .sound-bar {
+            width: 3px;
+            background: var(--gold);
+            border-radius: 2px;
+            transition: height 0.15s ease;
+        }
+        .sound-bar:nth-child(1) { height: 5px; animation: bar1 0.6s ease-in-out infinite alternate; }
+        .sound-bar:nth-child(2) { height: 9px; animation: bar2 0.6s ease-in-out infinite alternate 0.15s; }
+        .sound-bar:nth-child(3) { height: 6px; animation: bar3 0.6s ease-in-out infinite alternate 0.3s; }
+        .sound-bar:nth-child(4) { height: 11px; animation: bar4 0.6s ease-in-out infinite alternate 0.45s; }
+        @keyframes bar1 { from { height: 5px; } to { height: 11px; } }
+        @keyframes bar2 { from { height: 9px; } to { height: 4px; } }
+        @keyframes bar3 { from { height: 6px; } to { height: 13px; } }
+        @keyframes bar4 { from { height: 11px; } to { height: 5px; } }
+
+        .sound-bars.muted .sound-bar { animation: none; height: 3px; opacity: 0.3; }
+        .sound-label {
+            font-size: 9px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--muted);
         }
 
         /* ── RESPONSIVE ── */
@@ -618,11 +692,11 @@
                 <div class="field">
                     <label>Working Partners</label>
                     <div class="partner-selector" id="partner-selector">
-                        <button type="button" class="partner-btn" onclick="selectPartner(1)">1</button>
-                        <button type="button" class="partner-btn" onclick="selectPartner(2)">2</button>
-                        <button type="button" class="partner-btn" onclick="selectPartner(3)">3</button>
-                        <button type="button" class="partner-btn" onclick="selectPartner(4)">4</button>
-                        <button type="button" class="partner-btn" onclick="selectPartner(5)">5</button>
+                        <button type="button" class="partner-btn" onclick="selectPartner(1, this)">1</button>
+                        <button type="button" class="partner-btn" onclick="selectPartner(2, this)">2</button>
+                        <button type="button" class="partner-btn" onclick="selectPartner(3, this)">3</button>
+                        <button type="button" class="partner-btn" onclick="selectPartner(4, this)">4</button>
+                        <button type="button" class="partner-btn" onclick="selectPartner(5, this)">5</button>
                     </div>
                 </div>
             </div>
@@ -651,19 +725,186 @@
     </div>
 </div>
 
-<script>
-let selectedWorking = null;
+<!-- Sound toggle -->
+<div class="sound-indicator" id="sound-toggle" onclick="toggleSound()" title="Toggle sound">
+    <div class="sound-bars" id="sound-bars">
+        <div class="sound-bar"></div>
+        <div class="sound-bar"></div>
+        <div class="sound-bar"></div>
+        <div class="sound-bar"></div>
+    </div>
+    <span class="sound-label" id="sound-label">Sound On</span>
+</div>
 
-function selectPartner(n) {
+<script>
+/* ─────────────────────────────────────────
+   KEYBOARD SOUND ENGINE  (Web Audio API)
+───────────────────────────────────────── */
+let audioCtx = null;
+let soundEnabled = true;
+
+function getAudioCtx() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    // Resume if suspended (browser autoplay policy)
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+}
+
+/**
+ * Plays a mechanical keyboard "click" sound.
+ * @param {string} type  'press' | 'release' | 'snap'
+ */
+function playKeyClick(type = 'press') {
+    if (!soundEnabled) return;
+    try {
+        const ctx = getAudioCtx();
+        const now = ctx.currentTime;
+
+        if (type === 'press') {
+            // ── DOWN stroke: sharp transient + short noise burst ──
+            // 1. Transient click (very short sine burst)
+            const clickOsc = ctx.createOscillator();
+            const clickGain = ctx.createGain();
+            clickOsc.connect(clickGain);
+            clickGain.connect(ctx.destination);
+            clickOsc.type = 'sine';
+            clickOsc.frequency.setValueAtTime(2400, now);
+            clickOsc.frequency.exponentialRampToValueAtTime(180, now + 0.018);
+            clickGain.gain.setValueAtTime(0.28, now);
+            clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.022);
+            clickOsc.start(now);
+            clickOsc.stop(now + 0.022);
+
+            // 2. Short noise (key plastic body thud)
+            const bufLen = Math.floor(ctx.sampleRate * 0.025);
+            const noiseBuffer = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+            const data = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < bufLen; i++) data[i] = (Math.random() * 2 - 1);
+            const noiseSource = ctx.createBufferSource();
+            noiseSource.buffer = noiseBuffer;
+            const noiseFilter = ctx.createBiquadFilter();
+            noiseFilter.type = 'bandpass';
+            noiseFilter.frequency.value = 3800;
+            noiseFilter.Q.value = 0.8;
+            const noiseGain = ctx.createGain();
+            noiseGain.gain.setValueAtTime(0.18, now);
+            noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.025);
+            noiseSource.connect(noiseFilter);
+            noiseFilter.connect(noiseGain);
+            noiseGain.connect(ctx.destination);
+            noiseSource.start(now);
+            noiseSource.stop(now + 0.025);
+
+        } else if (type === 'release') {
+            // ── UP stroke: softer, slightly lower pitched ──
+            const upOsc = ctx.createOscillator();
+            const upGain = ctx.createGain();
+            upOsc.connect(upGain);
+            upGain.connect(ctx.destination);
+            upOsc.type = 'sine';
+            upOsc.frequency.setValueAtTime(1600, now);
+            upOsc.frequency.exponentialRampToValueAtTime(140, now + 0.014);
+            upGain.gain.setValueAtTime(0.13, now);
+            upGain.gain.exponentialRampToValueAtTime(0.001, now + 0.016);
+            upOsc.start(now);
+            upOsc.stop(now + 0.016);
+
+            const bufLen2 = Math.floor(ctx.sampleRate * 0.016);
+            const nb2 = ctx.createBuffer(1, bufLen2, ctx.sampleRate);
+            const d2 = nb2.getChannelData(0);
+            for (let i = 0; i < bufLen2; i++) d2[i] = (Math.random() * 2 - 1);
+            const ns2 = ctx.createBufferSource();
+            ns2.buffer = nb2;
+            const nf2 = ctx.createBiquadFilter();
+            nf2.type = 'bandpass';
+            nf2.frequency.value = 2800;
+            nf2.Q.value = 1.0;
+            const ng2 = ctx.createGain();
+            ng2.gain.setValueAtTime(0.09, now);
+            ng2.gain.exponentialRampToValueAtTime(0.001, now + 0.018);
+            ns2.connect(nf2); nf2.connect(ng2); ng2.connect(ctx.destination);
+            ns2.start(now); ns2.stop(now + 0.018);
+
+        } else if (type === 'snap') {
+            // ── Tactile snap (for switching from one key to another) ──
+            const sOsc = ctx.createOscillator();
+            const sGain = ctx.createGain();
+            sOsc.connect(sGain); sGain.connect(ctx.destination);
+            sOsc.type = 'square';
+            sOsc.frequency.setValueAtTime(900, now);
+            sOsc.frequency.exponentialRampToValueAtTime(120, now + 0.01);
+            sGain.gain.setValueAtTime(0.08, now);
+            sGain.gain.exponentialRampToValueAtTime(0.001, now + 0.012);
+            sOsc.start(now); sOsc.stop(now + 0.012);
+        }
+    } catch(e) { /* silently fail if Web Audio isn't available */ }
+}
+
+function toggleSound() {
+    soundEnabled = !soundEnabled;
+    const bars = document.getElementById('sound-bars');
+    const label = document.getElementById('sound-label');
+    bars.classList.toggle('muted', !soundEnabled);
+    label.textContent = soundEnabled ? 'Sound On' : 'Sound Off';
+    if (soundEnabled) playKeyClick('press');
+}
+
+/* ─────────────────────────────────────────
+   RIPPLE HELPER
+───────────────────────────────────────── */
+function spawnRipple(btn) {
+    const ripple = document.createElement('span');
+    ripple.classList.add('ripple');
+    const size = Math.max(btn.offsetWidth, btn.offsetHeight) * 1.5;
+    ripple.style.cssText = `width:${size}px;height:${size}px;left:${btn.offsetWidth/2 - size/2}px;top:${btn.offsetHeight/2 - size/2}px;`;
+    btn.appendChild(ripple);
+    ripple.addEventListener('animationend', () => ripple.remove());
+}
+
+/* ─────────────────────────────────────────
+   PARTNER SELECTION
+───────────────────────────────────────── */
+let selectedWorking = null;
+let lastSelected = null;
+
+function selectPartner(n, btn) {
+    const wasAlreadySelected = selectedWorking === n;
+
+    // Play sound sequence
+    if (wasAlreadySelected) {
+        // Same key pressed again — just a re-click
+        playKeyClick('press');
+        setTimeout(() => playKeyClick('release'), 55);
+    } else if (lastSelected !== null) {
+        // Switching from one key to another
+        playKeyClick('press');
+        setTimeout(() => playKeyClick('snap'), 30);
+        setTimeout(() => playKeyClick('release'), 65);
+    } else {
+        // First key press
+        playKeyClick('press');
+        setTimeout(() => playKeyClick('release'), 60);
+    }
+
     selectedWorking = n;
+    lastSelected = n;
+
     const btns = document.querySelectorAll('.partner-btn');
-    btns.forEach((btn, i) => {
-        btn.classList.toggle('active', i + 1 === n);
+    btns.forEach((b, i) => {
+        b.classList.toggle('active', i + 1 === n);
     });
+
+    // Ripple on the clicked button
+    if (btn) spawnRipple(btn);
+
     autoCalc();
 }
 
-// Format number in Indian comma style
+/* ─────────────────────────────────────────
+   FORMAT HELPERS
+───────────────────────────────────────── */
 function fmtIndian(n) {
     if (isNaN(n) || n === null) return '';
     return '\u20B9\u202f' + n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
