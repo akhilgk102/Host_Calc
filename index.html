@@ -205,6 +205,48 @@
             gap: 14px;
         }
 
+        /* ── PARTNER SELECTOR ── */
+        .partner-selector {
+            display: flex;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .partner-btn {
+            flex: 1;
+            padding: 13px 4px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: rgba(255,255,255,0.45);
+            font-family: 'DM Mono', monospace;
+            font-size: 17px;
+            font-weight: 400;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+            -webkit-tap-highlight-color: transparent;
+            margin-top: 0;
+            box-shadow: none;
+            letter-spacing: 0;
+            text-transform: none;
+        }
+        .partner-btn:hover:not(.active) {
+            border-color: rgba(201,168,76,0.25);
+            color: rgba(255,255,255,0.75);
+            transform: translateY(-1px);
+            background: #1a1a22;
+        }
+        .partner-btn.active {
+            background: linear-gradient(135deg, #b8922e 0%, #c9a84c 40%, #e8c97a 70%, #c9a84c 100%);
+            border-color: transparent;
+            color: #0a0805;
+            font-weight: 400;
+            box-shadow: 0 4px 16px rgba(201,168,76,0.3), 0 1px 3px rgba(0,0,0,0.4);
+            transform: translateY(-1px);
+        }
+        .partner-btn:active { transform: translateY(0) scale(0.97); }
+
         button {
             width: 100%;
             margin-top: 14px;
@@ -575,9 +617,12 @@
                 </div>
                 <div class="field">
                     <label>Working Partners</label>
-                    <div class="input-wrap">
-                        <span class="input-prefix">#</span>
-                        <input type="number" id="working" placeholder="0" oninput="autoCalc()">
+                    <div class="partner-selector" id="partner-selector">
+                        <button type="button" class="partner-btn" onclick="selectPartner(1)">1</button>
+                        <button type="button" class="partner-btn" onclick="selectPartner(2)">2</button>
+                        <button type="button" class="partner-btn" onclick="selectPartner(3)">3</button>
+                        <button type="button" class="partner-btn" onclick="selectPartner(4)">4</button>
+                        <button type="button" class="partner-btn" onclick="selectPartner(5)">5</button>
                     </div>
                 </div>
             </div>
@@ -607,13 +652,23 @@
 </div>
 
 <script>
-// Format number in Indian comma style: 1,00,000
+let selectedWorking = null;
+
+function selectPartner(n) {
+    selectedWorking = n;
+    const btns = document.querySelectorAll('.partner-btn');
+    btns.forEach((btn, i) => {
+        btn.classList.toggle('active', i + 1 === n);
+    });
+    autoCalc();
+}
+
+// Format number in Indian comma style
 function fmtIndian(n) {
     if (isNaN(n) || n === null) return '';
     return '\u20B9\u202f' + n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-// Full number format — no abbreviations, always show complete digits
 function shortFmt(n) {
     return '\u20B9 ' + n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -635,7 +690,7 @@ function autoCalc() {
     autoCalcTimer = setTimeout(() => {
         const total   = parseFloat(document.getElementById('amount').value);
         const percent = parseFloat(document.getElementById('percentage').value);
-        const working = parseInt(document.getElementById('working').value);
+        const working = selectedWorking;
         if (total && !isNaN(percent) && working) {
             renderResults(total, percent, working);
         }
@@ -645,13 +700,13 @@ function autoCalc() {
 function calculate() {
     const total   = parseFloat(document.getElementById('amount').value);
     const percent = parseFloat(document.getElementById('percentage').value);
-    const working = parseInt(document.getElementById('working').value);
+    const working = selectedWorking;
     const resultsEl = document.getElementById('results');
     const emptyEl   = document.getElementById('empty-state');
 
     if (!total || isNaN(percent) || !working) {
         emptyEl.style.display = 'none';
-        resultsEl.innerHTML = `<div class="error-msg">Please fill in all fields to continue.</div>`;
+        resultsEl.innerHTML = `<div class="error-msg">Please fill in all fields and select working partners to continue.</div>`;
         resultsEl.classList.add('visible');
         return;
     }
