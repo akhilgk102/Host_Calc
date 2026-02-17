@@ -173,6 +173,7 @@
             pointer-events: none;
         }
 
+        /* ── KEY FIX: font-size 16px prevents iOS auto-zoom ── */
         input[type="number"] {
             width: 100%;
             background: var(--surface2);
@@ -187,6 +188,8 @@
             transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
             appearance: textfield;
             -moz-appearance: textfield;
+            /* Prevent iOS zoom — must be exactly 16px or larger */
+            -webkit-text-size-adjust: 100%;
         }
         input[type="number"]::-webkit-outer-spin-button,
         input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
@@ -223,6 +226,8 @@
             overflow: hidden;
             transition: transform 0.2s, box-shadow 0.2s, background-position 0.4s;
             box-shadow: 0 4px 20px rgba(201,168,76,0.25), 0 1px 3px rgba(0,0,0,0.4);
+            /* Prevent tap highlight on iOS */
+            -webkit-tap-highlight-color: transparent;
         }
         button::after {
             content: '';
@@ -407,8 +412,9 @@
 
             .two-col { grid-template-columns: 1fr 1fr; gap: 10px; }
 
+            /* Keep font-size at 16px on mobile — this is the critical fix for iOS zoom */
             input[type="number"] {
-                font-size: 15px;
+                font-size: 16px;
                 padding: 13px 12px 13px 36px;
             }
             .input-prefix { font-size: 17px; }
